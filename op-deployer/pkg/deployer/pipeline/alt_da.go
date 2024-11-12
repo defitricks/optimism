@@ -27,11 +27,16 @@ func DeployAltDA(env *Env, intent *state.Intent, st *state.State, chainID common
 		return nil
 	}
 
+	chainIndex, err := findChainIndex(st.Chains, chainID)
+	if err != nil {
+		return err
+	}
+
 	var dao opcm.DeployAltDAOutput
 	lgr.Info("deploying alt-da contracts")
 	dao, err = opcm.DeployAltDA(env.L1ScriptHost, opcm.DeployAltDAInput{
 		Salt:                     st.Create2Salt,
-		ProxyAdmin:               st.ImplementationsDeployment.OpcmProxyAddress,
+		ProxyAdmin:               st.Chains[chainIndex].ProxyAdminAddress,
 		ChallengeContractOwner:   chainIntent.Roles.L1ProxyAdminOwner,
 		ChallengeWindow:          new(big.Int).SetUint64(chainIntent.DangerousAltDAConfig.DAChallengeWindow),
 		ResolveWindow:            new(big.Int).SetUint64(chainIntent.DangerousAltDAConfig.DAResolveWindow),
@@ -45,6 +50,15 @@ func DeployAltDA(env *Env, intent *state.Intent, st *state.State, chainID common
 	chainState.DataAvailabilityChallengeProxyAddress = dao.DataAvailabilityChallengeProxy
 	chainState.DataAvailabilityChallengeImplAddress = dao.DataAvailabilityChallengeImpl
 	return nil
+}
+
+func findChainIndex(chains []*state.ChainState, chainID common.Hash) (int, error) {
+	for i, chain := range chains {
+		if chain.ID == chainID {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("chain with ID %s not found in state", chainID.Hex())
 }
 
 func shouldDeployAltDA(chainIntent *state.ChainIntent, chainState *state.ChainState) bool {

@@ -164,10 +164,6 @@ func OPCM(ctx context.Context, cfg OPCMConfig) error {
 	if err != nil {
 		return fmt.Errorf("error getting standard versions TOML: %w", err)
 	}
-	opcmProxyOwnerAddr, err := standard.ManagerOwnerAddrFor(chainIDU64)
-	if err != nil {
-		return fmt.Errorf("error getting superchain proxy admin: %w", err)
-	}
 
 	signer := opcrypto.SignerFnFromBind(opcrypto.PrivateKeySignerFn(cfg.privateKeyECDSA, chainID))
 	chainDeployer := crypto.PubkeyToAddress(cfg.privateKeyECDSA.PublicKey)
@@ -199,14 +195,14 @@ func OPCM(ctx context.Context, cfg OPCMConfig) error {
 		return fmt.Errorf("failed to create script host: %w", err)
 	}
 
-	var release string
+	var l1ContractsReleaseVersion string
 	if cfg.ArtifactsLocator.IsTag() {
-		release = cfg.ArtifactsLocator.Tag
+		l1ContractsReleaseVersion = cfg.ArtifactsLocator.Tag
 	} else {
-		release = "dev"
+		l1ContractsReleaseVersion = "dev"
 	}
 
-	lgr.Info("deploying OPCM", "release", release)
+	lgr.Info("deploying OPCM", "l1ContractsReleaseVersion", l1ContractsReleaseVersion)
 
 	// We need to etch the Superchain addresses so that they have nonzero code
 	// and the checks in the OPCM constructor pass.
@@ -238,10 +234,9 @@ func OPCM(ctx context.Context, cfg OPCMConfig) error {
 			ProofMaturityDelaySeconds:       new(big.Int).SetUint64(cfg.ProofMaturityDelaySeconds),
 			DisputeGameFinalityDelaySeconds: new(big.Int).SetUint64(cfg.DisputeGameFinalityDelaySeconds),
 			MipsVersion:                     new(big.Int).SetUint64(cfg.MIPSVersion),
-			Release:                         release,
+			L1ContractsReleaseVersion:       l1ContractsReleaseVersion,
 			SuperchainConfigProxy:           superchainConfigAddr,
 			ProtocolVersionsProxy:           protocolVersionsAddr,
-			OpcmProxyOwner:                  opcmProxyOwnerAddr,
 			StandardVersionsToml:            standardVersionsTOML,
 			UseInterop:                      false,
 		},

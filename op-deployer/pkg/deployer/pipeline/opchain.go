@@ -66,15 +66,15 @@ func DeployOPChainLiveStrategy(ctx context.Context, env *Env, bundle ArtifactsBu
 	}
 
 	var dco opcm.DeployOPChainOutput
-	lgr.Info("deploying OP chain using existing OPCM", "id", chainID.Hex(), "opcmAddress", st.ImplementationsDeployment.OpcmProxyAddress.Hex())
+	lgr.Info("deploying OP chain using existing OPCM", "id", chainID.Hex(), "opcmAddress", st.ImplementationsDeployment.OpcmAddress.Hex())
 	dco, err = deployFunc()
 	if err != nil {
 		return fmt.Errorf("error deploying OP chain: %w", err)
 	}
 
 	st.Chains = append(st.Chains, makeChainState(chainID, dco))
-	opcmProxyAddress := st.ImplementationsDeployment.OpcmProxyAddress
-	err = conditionallySetImplementationAddresses(ctx, env.L1Client, intent, st, dco, opcmProxyAddress)
+	opcmAddress := st.ImplementationsDeployment.OpcmAddress
+	err = conditionallySetImplementationAddresses(ctx, env.L1Client, intent, st, dco, opcmAddress)
 	if err != nil {
 		return fmt.Errorf("failed to set implementation addresses: %w", err)
 	}
@@ -84,7 +84,7 @@ func DeployOPChainLiveStrategy(ctx context.Context, env *Env, bundle ArtifactsBu
 
 // Only try to set the implementation addresses if we reused existing implementations from a release tag.
 // The reason why these addresses could be empty is because only DeployOPChain.s.sol is invoked as part of the pipeline.
-func conditionallySetImplementationAddresses(ctx context.Context, client *ethclient.Client, intent *state.Intent, st *state.State, dco opcm.DeployOPChainOutput, opcmProxyAddress common.Address) error {
+func conditionallySetImplementationAddresses(ctx context.Context, client *ethclient.Client, intent *state.Intent, st *state.State, dco opcm.DeployOPChainOutput, opcmAddress common.Address) error {
 	if !intent.L1ContractsLocator.IsTag() {
 		return nil
 	}
@@ -123,7 +123,7 @@ func conditionallySetImplementationAddresses(ctx context.Context, client *ethcli
 			setEIP1967ImplementationAddress(ctx, client, errCh, dco.DisputeGameFactoryProxy, currentBlockHash, &st.ImplementationsDeployment.DisputeGameFactoryImplAddress)
 		},
 		func() {
-			setMipsSingletonAddress(ctx, client, intent.L1ContractsLocator, errCh, opcmProxyAddress, &st.ImplementationsDeployment.MipsSingletonAddress)
+			setMipsSingletonAddress(ctx, client, intent.L1ContractsLocator, errCh, opcmAddress, &st.ImplementationsDeployment.MipsSingletonAddress)
 			setPreimageOracleAddress(ctx, client, errCh, st.ImplementationsDeployment.MipsSingletonAddress, &st.ImplementationsDeployment.PreimageOracleSingletonAddress)
 		},
 	}
@@ -146,13 +146,13 @@ func conditionallySetImplementationAddresses(ctx context.Context, client *ethcli
 	return nil
 }
 
-func setMipsSingletonAddress(ctx context.Context, client *ethclient.Client, l1ArtifactsLocator *artifacts.Locator, errCh chan error, opcmProxyAddress common.Address, singletonAddress *common.Address) {
+func setMipsSingletonAddress(ctx context.Context, client *ethclient.Client, l1ArtifactsLocator *artifacts.Locator, errCh chan error, opcmAddress common.Address, singletonAddress *common.Address) {
 	if !l1ArtifactsLocator.IsTag() {
 		errCh <- errors.New("L1 contracts locator is not a tag, cannot set MIPS singleton address")
 		return
 	}
-	opcmContract := opcm.NewContract(opcmProxyAddress, client)
-	mipsSingletonAddress, err := opcmContract.GetOPCMImplementationAddress(ctx, l1ArtifactsLocator.Tag, "MIPS")
+	opcmContract := opcm.NewContract(opcmAddress, client)
+	mipsSingletonAddress, err := opcmContract.GetMipsImplAddress(ctx)
 
 	if err == nil {
 		*singletonAddress = mipsSingletonAddress
@@ -255,7 +255,7 @@ func makeDCIV160(intent *state.Intent, thisIntent *state.ChainIntent, chainID co
 		BasefeeScalar:                standard.BasefeeScalar,
 		BlobBaseFeeScalar:            standard.BlobBaseFeeScalar,
 		L2ChainId:                    chainID.Big(),
-		OpcmProxy:                    st.ImplementationsDeployment.OpcmProxyAddress,
+		Opcm:                         st.ImplementationsDeployment.OpcmAddress,
 		SaltMixer:                    st.Create2Salt.String(), // passing through salt generated at state initialization
 		GasLimit:                     standard.GasLimit,
 		DisputeGameType:              proofParams.DisputeGameType,

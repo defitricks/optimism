@@ -51,7 +51,7 @@ type opcmDeployInputBase struct {
 }
 
 // opcmDeployInputV160 is the input struct for the deploy method of the OPStackManager contract. We
-// define a separate struct here to match what the OPSM contract expects.
+// define a separate struct here to match what the OPCM contract expects.
 type opcmDeployInputV160 struct {
 	opcmDeployInputBase
 	Roles opcmRolesBase
@@ -78,7 +78,7 @@ type DeployOPChainInputV160 struct {
 	BasefeeScalar     uint32
 	BlobBaseFeeScalar uint32
 	L2ChainId         *big.Int
-	OpcmProxy         common.Address
+	Opcm              common.Address
 	SaltMixer         string
 	GasLimit          uint64
 
@@ -227,7 +227,7 @@ func DeployOPChainRawV160(
 	artifacts foundry.StatDirFs,
 	input DeployOPChainInputV160,
 ) (DeployOPChainOutput, error) {
-	return deployOPChainRaw(ctx, l1, bcast, deployer, artifacts, input.OpcmProxy, DeployOPChainInputV160DeployCalldata(input))
+	return deployOPChainRaw(ctx, l1, bcast, deployer, artifacts, input.Opcm, DeployOPChainInputV160DeployCalldata(input))
 }
 
 func DeployOPChainRawIsthmus(
@@ -238,17 +238,17 @@ func DeployOPChainRawIsthmus(
 	artifacts foundry.StatDirFs,
 	input DeployOPChainInputIsthmus,
 ) (DeployOPChainOutput, error) {
-	return deployOPChainRaw(ctx, l1, bcast, deployer, artifacts, input.OpcmProxy, DeployOPChainInputIsthmusDeployCalldata(input))
+	return deployOPChainRaw(ctx, l1, bcast, deployer, artifacts, input.Opcm, DeployOPChainInputIsthmusDeployCalldata(input))
 }
 
-// DeployOPChainRaw deploys an OP Chain using a raw call to a pre-deployed OPSM contract.
+// DeployOPChainRaw deploys an OP Chain using a raw call to a pre-deployed OPCM contract.
 func deployOPChainRaw(
 	ctx context.Context,
 	l1 *ethclient.Client,
 	bcast broadcaster.Broadcaster,
 	deployer common.Address,
 	artifacts foundry.StatDirFs,
-	opcmProxyAddress common.Address,
+	opcmAddress common.Address,
 	input any,
 ) (DeployOPChainOutput, error) {
 	var out DeployOPChainOutput
@@ -272,7 +272,7 @@ func deployOPChainRaw(
 
 	bcast.Hook(script.Broadcast{
 		From:  deployer,
-		To:    opcmProxyAddress,
+		To:    opcmAddress,
 		Input: calldata,
 		Value: (*hexutil.U256)(uint256.NewInt(0)),
 		// use hardcoded 19MM gas for now since this is roughly what we've seen this deployment cost.
